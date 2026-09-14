@@ -1,0 +1,13 @@
+FROM ubuntu:latest
+
+COPY backup.sh /home/backup.sh
+
+WORKDIR /home
+
+# проверяем на ошибку
+# RUN ./backup.sh 
+
+# проверяем корректній сценарий
+RUN ls -l
+RUN ./backup.sh /opt .
+RUN ls -l
