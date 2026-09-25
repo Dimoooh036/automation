@@ -1,0 +1,16 @@
+{
+  "request": {
+    "from": "USD",
+    "to": "EUR",
+    "date": "2025-03-26"
+  },
+  "response": {
+    "from": "USD",
+    "to": "EUR",
+    "rate": 1.0817981982580578,
+    "date": "2025-03-26"
+  },
+  "rate": 1.0817981982580578,
+  "source": "http://localhost:8080/",
+  "saved_at": "2026-09-25T19:35:18"
+}

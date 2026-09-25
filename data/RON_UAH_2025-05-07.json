@@ -1,0 +1,16 @@
+{
+  "request": {
+    "from": "RON",
+    "to": "UAH",
+    "date": "2025-05-07"
+  },
+  "response": {
+    "from": "RON",
+    "to": "UAH",
+    "rate": 0.10785310292699456,
+    "date": "2025-05-07"
+  },
+  "rate": 0.10785310292699456,
+  "source": "http://localhost:8080/",
+  "saved_at": "2026-09-25T19:35:19"
+}
