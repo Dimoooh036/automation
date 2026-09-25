@@ -149,7 +149,7 @@ python currency_exchange_rate.py <валюта> <валюта> <YYYY-MM-DD> [к�
 | Константы | Адрес и ключ API по умолчанию, таймаут, число попыток, шаблоны проверки валюты и даты, период данных |
 | Исключения | `CurrencyExchangeError` и наследники: `ValidationError`, `ApiError`, `NetworkError`, `StorageError` |
 | Пути и журналирование | `find_project_root()`, `setup_console()`, `setup_logging()` |
-| Аргументы | `parse_args()`, `validate_currency()`, `validate_date()`, `validate_config()` |
+| Аргументы | `parse_args()`, `validate_connection()`, `validate_request_args()`, `validate_currency()`, `validate_date()` |
 | Работа с API | `ApiConfig`, `_request()`, `_parse_response()`, `fetch_rate()`, `fetch_currencies()` |
 | Сохранение | `build_filename()`, `save_result()` |
 | Точка входа | `run_list_currencies()`, `run_rate_request()`, `main()` |
@@ -171,6 +171,13 @@ python currency_exchange_rate.py <валюта> <валюта> <YYYY-MM-DD> [к�
 
 - **`parse_args()`** — `argparse`: три позиционных аргумента (валюта, валюта,
   дата) и дополнительные ключи; заодно реализована справка `--help`.
+
+- **`validate_connection()`** — проверяет параметры подключения (адрес API с
+  префиксом `http(s)://`, непустой ключ, положительный таймаут и число попыток)
+  до любого сетевого запроса и возвращает готовый `ApiConfig`.
+
+- **`validate_request_args()`** — проверяет коды валют и дату, возвращает
+  нормализованный набор `(base, quote, date)`.
 
 - **`validate_currency()`** — проверяет, что код состоит из трёх букв, и
   приводит его к верхнему регистру: сервис принимает только заглавные буквы

@@ -311,11 +311,12 @@ def validate_date(value: str | None, allow_any_date: bool = False) -> date:
     return parsed
 
 
-def validate_config(args: argparse.Namespace) -> tuple[str, str, date]:
+def validate_connection(args: argparse.Namespace) -> ApiConfig:
     """
-    Проверяет параметры подключения и параметры запроса.
+    Проверяет параметры подключения к API.
 
-    Возвращает нормализованный тройной набор (base, quote, date).
+    Вызывается до любого сетевого запроса, поэтому некорректный адрес,
+    пустой ключ или бессмысленные таймаут/число попыток отсекаются сразу.
     """
     url = args.api_url.strip()
     if not url:
@@ -337,6 +338,20 @@ def validate_config(args: argparse.Namespace) -> tuple[str, str, date]:
             f"Число попыток должно быть не меньше 1, получено {args.retries}."
         )
 
+    return ApiConfig(
+        base_url=url,
+        api_key=args.api_key.strip(),
+        timeout=args.timeout,
+        retries=args.retries,
+    )
+
+
+def validate_request_args(args: argparse.Namespace) -> tuple[str, str, date]:
+    """
+    Проверяет параметры самого запроса: коды валют и дату.
+
+    Возвращает нормализованный набор (base, quote, date).
+    """
     base = validate_currency(args.base, "base")
     quote = validate_currency(args.quote, "quote")
     if base == quote:
@@ -591,7 +606,7 @@ def run_rate_request(
     project_root: Path,
 ) -> int:
     """Получает курс, сохраняет его в JSON и печатает отчёт."""
-    base, quote, requested_date = validate_config(args)
+    base, quote, requested_date = validate_request_args(args)
     data_dir = project_root / DATA_DIR_NAME
 
     LOGGER.info("Запрос курса %s → %s на %s ...", base, quote, requested_date)
@@ -648,39 +663,40 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    config = ApiConfig(
-        base_url=args.api_url,
-        api_key=args.api_key,
-        timeout=args.timeout,
-        retries=args.retries,
-    )
-
     LOGGER.debug("Журнал ошибок: %s", log_path)
-    LOGGER.info("Курс валюты, источник: %s", config.endpoint)
 
-    with requests.Session() as session:
-        session.headers.update(
-            {"Accept": "application/json", "User-Agent": "lab02-currency-exchange/1.0"}
-        )
-        try:
+    try:
+        # Параметры подключения проверяем до любого сетевого запроса,
+        # а параметры запроса — только для сценария получения курса.
+        config = validate_connection(args)
+
+        LOGGER.info("Курс валюты, источник: %s", config.endpoint)
+
+        with requests.Session() as session:
+            session.headers.update(
+                {
+                    "Accept": "application/json",
+                    "User-Agent": "lab02-currency-exchange/1.0",
+                }
+            )
             if args.list_currencies:
                 return run_list_currencies(session, config)
             return run_rate_request(session, config, args, project_root)
-        except ValidationError as exc:
-            # Ошибки проверки входных данных не логируются в месте Raise,
-            # поэтому записываем их здесь (код возврата — как у argparse).
-            LOGGER.error("Проверка аргументов не пройдена: %s", exc)
-            return 2
-        except CurrencyExchangeError as exc:
-            # Причина уже записана в error.log на уровне ERROR в точке
-            # возникновения; добавляем итоговую строку без дублирования.
-            LOGGER.error(
-                "Скрипт завершён с ошибкой (код возврата 1): %s", exc.__class__.__name__
-            )
-            return 1
-        except KeyboardInterrupt:  # pragma: no cover - прерывание пользователем
-            LOGGER.warning("Работа прервана пользователем (Ctrl+C).")
-            return 1
+    except ValidationError as exc:
+        # Ошибки проверки входных данных не логируются в месте Raise,
+        # поэтому записываем их здесь (код возврата — как у argparse).
+        LOGGER.error("Проверка аргументов не пройдена: %s", exc)
+        return 2
+    except CurrencyExchangeError as exc:
+        # Причина уже записана в error.log на уровне ERROR в точке
+        # возникновения; добавляем итоговую строку без дублирования.
+        LOGGER.error(
+            "Скрипт завершён с ошибкой (код возврата 1): %s", exc.__class__.__name__
+        )
+        return 1
+    except KeyboardInterrupt:  # pragma: no cover - прерывание пользователем
+        LOGGER.warning("Работа прервана пользователем (Ctrl+C).")
+        return 1
 
 
 if __name__ == "__main__":
