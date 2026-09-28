@@ -121,14 +121,14 @@ def find_project_root() -> Path:
     с признаком корня проекта.
     """
     current = Path(__file__).resolve().parent
-    ancestors = list(current.parents)  # родители скрипта, без него самого
-    for candidate in ancestors:
-        if (candidate / ".git").exists():
-            return candidate
-    for candidate in ancestors:
-        if (candidate / "README.md").is_file():
-            return candidate
-    return current.parent
+    # ancestors = list(current.parents)  # родители скрипта, без него самого
+    # for candidate in ancestors:
+    #     if (candidate / ".git").exists():
+    #         return candidate
+    # for candidate in ancestors:
+    #     if (candidate / "README.md").is_file():
+    #         return candidate
+    return current
 
 
 def setup_console() -> None:
