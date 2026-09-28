@@ -1,0 +1,16 @@
+{
+  "request": {
+    "from": "USD",
+    "to": "MDL",
+    "date": "2025-03-17"
+  },
+  "response": {
+    "from": "USD",
+    "to": "MDL",
+    "rate": 0.056026803222661715,
+    "date": "2025-03-17"
+  },
+  "rate": 0.056026803222661715,
+  "source": "http://localhost:8080/",
+  "saved_at": "2026-09-28T11:43:50"
+}

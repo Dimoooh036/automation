@@ -1,0 +1,8 @@
+# Журнал ошибок создаётся скриптом lab02/currency_exchange_rate.py
+error.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
