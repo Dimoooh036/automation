@@ -1,0 +1,17 @@
+# IW03 — сборка и запуск контейнера с cron-задачами.
+services:
+  # контейнер с cron: по расписанию запускает currency_exchange_rate.py
+  currency-cron:
+    build: .
+    container_name: lab03-cron
+    environment:
+      # ключ API сервиса курсов валют (как в lab02prep/.env)
+      API_KEY: ${API_KEY:-EXAMPLE_API_KEY}
+      # адрес API-сервиса. Сервис lab02prep (php:8.3-apache) запущен
+      # отдельно на хосте и опубликован на порту 8080; из контейнера
+      # хост доступен по имени host.docker.internal (Docker Desktop).
+      # Если сервис API добавить в этот compose-файл как сервис `web`,
+      # используйте вместо этого http://web/ (пример — в readme.md).
+      API_URL: http://host.docker.internal:8080/
+      TZ: Europe/Chisinau
+    restart: unless-stopped
