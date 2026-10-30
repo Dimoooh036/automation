@@ -1,8 +1,4 @@
-# Р–СѓСЂРЅР°Р» РѕС€РёР±РѕРє СЃРѕР·РґР°С‘С‚СЃСЏ СЃРєСЂРёРїС‚РѕРј lab02/currency_exchange_rate.py
-error.log
 
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
+# lab04: приватный SSH-ключ агента не публикуется в репозиторий
+lab04/secrets/jenkins_agent_ssh_key
+
