@@ -1,3 +1,0 @@
-# Зависимости лабораторной работы №2 (IW02).
-# Установка: pip install -r requirements.txt
-requests>=2.31,<3
