@@ -1,0 +1,86 @@
+---
+# Настройка тестового сервера: Apache2 + PHP + виртуальный хост для PHP проекта.
+- name: Configure test server for the PHP application
+  hosts: test_servers
+  become: true
+  gather_facts: true
+
+  vars:
+    php_app_root: /var/www/php-app
+    php_app_public_dir: /var/www/php-app/public
+    php_app_server_name: test-server
+
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install Apache2 and PHP packages
+      ansible.builtin.apt:
+        name:
+          - apache2
+          - libapache2-mod-php
+          - php
+          - php-cli
+          - php-mbstring
+          - php-xml
+          - php-curl
+        state: present
+
+    - name: Create application directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+      loop:
+        - "{{ php_app_root }}"
+        - "{{ php_app_public_dir }}"
+
+    - name: Configure Apache virtual host for the PHP application
+      ansible.builtin.template:
+        src: templates/php-app.conf.j2
+        dest: /etc/apache2/sites-available/php-app.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart Apache
+
+    - name: Enable the PHP application virtual host
+      ansible.builtin.command:
+        cmd: a2ensite php-app
+        creates: /etc/apache2/sites-enabled/php-app.conf
+      notify: Restart Apache
+
+    - name: Disable the default Apache virtual host
+      ansible.builtin.command:
+        cmd: a2dissite 000-default
+        removes: /etc/apache2/sites-enabled/000-default.conf
+      notify: Restart Apache
+
+    - name: Enable Apache rewrite module
+      ansible.builtin.command:
+        cmd: a2enmod rewrite
+        creates: /etc/apache2/mods-enabled/rewrite.load
+      notify: Restart Apache
+
+    - name: Ensure Apache2 is running
+      ansible.builtin.service:
+        name: apache2
+        state: started
+        enabled: true
+
+    - name: Check PHP module is loaded by Apache
+      ansible.builtin.command:
+        cmd: apache2ctl -M
+      register: apache_modules
+      changed_when: false
+      failed_when: "'php_module' not in apache_modules.stdout"
+
+  handlers:
+    - name: Restart Apache
+      ansible.builtin.service:
+        name: apache2
+        state: restarted

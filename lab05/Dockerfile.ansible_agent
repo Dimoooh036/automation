@@ -1,0 +1,31 @@
+# Агент Ansible на базе Ubuntu.
+# Jenkins подключается к нему по SSH, агент запускает ansible-playbook
+# и подключается к тестовому серверу от имени пользователя ansible.
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        openssh-server \
+        openssh-client \
+        ca-certificates \
+        curl \
+        git \
+        default-jre-headless \
+        ansible \
+        python3 \
+        sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -s /bin/bash jenkins \
+    && echo 'jenkins:jenkins' | chpasswd \
+    && mkdir -p /home/jenkins/.ssh /home/jenkins/agent /run/sshd \
+    && chown -R jenkins:jenkins /home/jenkins \
+    && chmod 700 /home/jenkins/.ssh
+
+COPY ansible-agent-entrypoint.sh /usr/local/bin/ansible-agent-entrypoint.sh
+RUN chmod +x /usr/local/bin/ansible-agent-entrypoint.sh
+
+EXPOSE 22
+
+ENTRYPOINT ["/usr/local/bin/ansible-agent-entrypoint.sh"]

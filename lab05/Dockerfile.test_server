@@ -1,0 +1,29 @@
+# Тестовый сервер на базе Ubuntu.
+# SSH-сервер + пользователь ansible с доступом по ключу.
+# Apache2, PHP и виртуальный хост устанавливаются Ansible playbook'ом.
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        openssh-server \
+        ca-certificates \
+        python3 \
+        sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+# Пользователь, от имени которого Ansible управляет сервером
+RUN useradd -m -s /bin/bash ansible \
+    && echo 'ansible:ansible' | chpasswd \
+    && echo 'ansible ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ansible \
+    && chmod 0440 /etc/sudoers.d/ansible \
+    && mkdir -p /home/ansible/.ssh /run/sshd \
+    && chown -R ansible:ansible /home/ansible \
+    && chmod 700 /home/ansible/.ssh
+
+COPY test-server-entrypoint.sh /usr/local/bin/test-server-entrypoint.sh
+RUN chmod +x /usr/local/bin/test-server-entrypoint.sh
+
+EXPOSE 22 80
+
+ENTRYPOINT ["/usr/local/bin/test-server-entrypoint.sh"]

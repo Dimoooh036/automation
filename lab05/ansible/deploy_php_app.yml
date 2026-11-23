@@ -1,0 +1,55 @@
+---
+# Размещение PHP проекта на тестовом сервере.
+# project_dir передаётся из Jenkins: -e "project_dir=$WORKSPACE/lab05/php-app"
+- name: Deploy the PHP application to the test server
+  hosts: test_servers
+  become: true
+  gather_facts: false
+
+  vars:
+    php_app_root: /var/www/php-app
+    php_app_public_dir: /var/www/php-app/public
+    local_project_dir: "{{ project_dir | default(playbook_dir + '/../php-app') }}"
+
+  tasks:
+    - name: Ensure the application directory exists
+      ansible.builtin.file:
+        path: "{{ php_app_root }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Copy PHP application files to the test server
+      ansible.builtin.copy:
+        src: "{{ local_project_dir }}/"
+        dest: "{{ php_app_root }}/"
+        owner: www-data
+        group: www-data
+        mode: preserve
+        directory_mode: "0755"
+      notify: Restart Apache
+
+    - name: Ensure the public directory is readable by Apache
+      ansible.builtin.file:
+        path: "{{ php_app_public_dir }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Wait until the deployed application responds with HTTP 200
+      ansible.builtin.uri:
+        url: "http://127.0.0.1/"
+        status_code: 200
+        return_content: false
+      register: deploy_check
+      retries: 10
+      delay: 2
+      until: deploy_check.status == 200
+
+  handlers:
+    - name: Restart Apache
+      ansible.builtin.service:
+        name: apache2
+        state: restarted
