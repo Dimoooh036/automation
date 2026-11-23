@@ -333,11 +333,13 @@ Playbook выполняет идемпотентную настройку сер
 </VirtualHost>
 ```
 
-Ручной запуск:
+Ручной запуск выполняется на Ansible-агенте (там находится приватный ключ
+`/home/jenkins/.ssh/ansible_server_key`, на который ссылается `hosts.ini`):
 
 ```bash
-cd lab05/ansible
-ansible-playbook -i hosts.ini setup_test_server.yml
+docker exec -u jenkins lab05-ansible-agent bash -lc \
+  "cd /home/jenkins/agent/workspace/lab05-ansible-setup/lab05/ansible && \
+   ansible-playbook -i hosts.ini setup_test_server.yml"
 ```
 
 Результат выполнения в работе:
@@ -601,12 +603,17 @@ docker compose up -d --build
 # 5. Запустить задания по порядку: build-test -> ansible-setup -> php-deploy.
 ```
 
-Проверка без Jenkins:
+Проверка без Jenkins (внутри Ansible-агента):
 
 ```bash
-cd lab05/ansible
-ansible-playbook -i hosts.ini setup_test_server.yml
-ansible-playbook -i hosts.ini deploy_php_app.yml
+docker exec -u jenkins lab05-ansible-agent bash -lc '
+  rm -rf /tmp/lab05 &&
+  git clone --branch lab05 --depth 1 \
+    https://github.com/Dimoooh036/automation.git /tmp/lab05 &&
+  cd /tmp/lab05/lab05/ansible &&
+  ansible-playbook -i hosts.ini setup_test_server.yml &&
+  ansible-playbook -i hosts.ini deploy_php_app.yml
+'
 curl -sS -o /dev/null -w "%{http_code}\n" http://localhost:8081/
 ```
 
