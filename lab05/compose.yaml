@@ -53,8 +53,6 @@ services:
     container_name: lab05-test-server
     environment:
       - ANSIBLE_SSH_PUBKEY=${ANSIBLE_SERVER_SSH_PUBKEY}
-    ports:
-      - "8081:80"
     networks:
       - jenkins-network
 

@@ -30,13 +30,15 @@
                                                                  ▼
                                                             test-server
                                                             Apache2 + PHP
-                                                            http://localhost:8081
+                                                            http://test-server
+                                                            (только внутри сети)
 ```
 
 Все контейнеры находятся в одной Docker-сети `jenkins-network`, поэтому
 обращаются друг к другу по именам сервисов: `ssh-agent`, `ansible-agent`,
-`test-server`. Наружу опубликованы только порты Jenkins (`8080`, `50000`) и
-тестового сервера (`8081`).
+`test-server`. Наружу опубликованы только порты Jenkins (`8080` — веб-интерфейс,
+`50000` — JNLP). Тестовый сервер доступен только внутри Docker-сети по имени
+`test-server`, отдельный порт для него не публикуется.
 
 ### Структура `lab05`
 
@@ -76,25 +78,84 @@ lab05/
 │   ├── php_build_and_test_pipeline.groovy
 │   ├── ansible_setup_pipeline.groovy
 │   └── php_deploy_pipeline.groovy
-└── readme.md                          # этот отчёт
+└── README.md                          # этот файл
 ```
 
-## Запуск стека
+## Пошаговое выполнение
+
+Ниже — общая последовательность. Подробные команды и пояснения находятся в
+соответствующих разделах дальше.
+
+1. **Клонировать репозиторий** и перейти в каталог `lab05`.
+2. **Проверить SSH-ключи** в `secrets/` и публичные ключи в `.env`.
+   Приватные ключи в Git не попадают.
+3. **Запустить контейнеры** командой `docker compose up -d --build`.
+4. **Настроить Jenkins Controller**: получить `initialAdminPassword`,
+   создать администратора, установить рекомендуемые плагины и
+   **SSH Build Agents**.
+5. **Добавить credentials** для SSH-агентов:
+   `jenkins-agent-ssh-key` и `ansible-agent-ssh-key`.
+6. **Создать два узла Jenkins**:
+   `ssh-agent1` (метка `php-agent`) и `ansible-agent1`
+   (метка `ansible-agent`). Оба подключаются по SSH.
+7. **Создать три Pipeline-задания** с типом *Pipeline script from SCM*,
+   ветка `*/lab05`:
+   - `lab05-php-build-test` → `lab05/pipelines/php_build_and_test_pipeline.groovy`;
+   - `lab05-ansible-setup` → `lab05/pipelines/ansible_setup_pipeline.groovy`;
+   - `lab05-php-deploy` → `lab05/pipelines/php_deploy_pipeline.groovy`.
+8. **Запустить задания по порядку**: сборка и тесты PHP → настройка сервера
+   через Ansible → развёртывание PHP-проекта.
+9. **Проверить результат**: приложение отвечает `HTTP 200` по адресу
+   `http://test-server/` внутри Docker-сети (см. раздел «Проверка результата»).
+
+## Инструкция запуска
+
+### 1. Клонирование и запуск
 
 ```bash
-cd lab05
+git clone --branch lab05 https://github.com/Dimoooh036/automation.git
+cd automation/lab05
 docker compose up -d --build
 ```
 
-Проверка контейнеров:
+### 2. Проверка контейнеров
 
 ```bash
 docker compose ps
 ```
 
-Ожидаемый результат: четыре контейнера в состоянии `Up`, порты
-`0.0.0.0:8080->8080/tcp`, `0.0.0.0:50000->50000/tcp` и
-`0.0.0.0:8081->80/tcp`.
+Ожидаемый результат: четыре контейнера в состоянии `Up`. Наружу опубликованы
+только порты Jenkins:
+
+```
+lab05-jenkins-controller   0.0.0.0:8080->8080/tcp, 0.0.0.0:50000->50000/tcp
+lab05-ssh-agent            22/tcp
+lab05-ansible-agent        22/tcp
+lab05-test-server          22/tcp, 80/tcp
+```
+
+Порты `22` и `80` у агентов и тестового сервера не опубликованы на хост —
+они используются только внутри сети `jenkins-network`.
+
+### 3. Первичная настройка Jenkins
+
+```bash
+docker exec lab05-jenkins-controller \
+  cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+Открыть `http://localhost:8080`, ввести пароль, установить рекомендуемые
+плагины, создать администратора. Дополнительно установить **SSH Build Agents**.
+
+### 4. Дальнейшие шаги
+
+Добавить credentials, создать узлы и Pipeline-задания по инструкциям из
+разделов «Настройка SSH-агента для PHP», «Настройка Ansible-агента» и
+«Конвейеры Jenkins». После этого запустить задания в порядке:
+
+```
+lab05-php-build-test → lab05-ansible-setup → lab05-php-deploy
+```
 
 ## Настройка Jenkins Controller
 
@@ -349,8 +410,15 @@ PLAY RECAP *********************************************************************
 test-server : ok=10 changed=2 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0
 ```
 
-Повторный запуск не меняет уже настроенный сервер (кроме обновления кэша
-`apt`), то есть playbook идемпотентен.
+После пересоздания контейнера `test-server` первый запуск устанавливает всё
+с нуля и выглядит так:
+
+```
+test-server : ok=11 changed=9 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0
+```
+
+Повторный запуск на уже настроенном сервере почти ничего не меняет (кроме
+обновления кэша `apt`), то есть playbook идемпотентен.
 
 ### `ansible/deploy_php_app.yml`
 
@@ -560,15 +628,29 @@ Finished: SUCCESS
 
 ## Проверка результата
 
-Приложение доступно по адресу `http://localhost:8081/`. Проверка:
+Тестовый сервер не публикует порт на хост, поэтому приложение проверяется
+изнутри Docker-сети. Удобнее всего — с Ansible-агента, где есть `curl`:
 
 ```bash
-curl -sS -o /dev/null -w "%{http_code}\n" http://localhost:8081/
+docker exec lab05-ansible-agent \
+  curl -sS -o /dev/null -w "%{http_code}\n" http://test-server/
 # 200
+```
+
+Можно также проверить содержимое страницы:
+
+```bash
+docker exec lab05-ansible-agent \
+  curl -sS http://test-server/ | head -20
 ```
 
 На странице отображается заголовок «PHP-приложение развёрнуто на тестовом
 сервере» и результаты пяти проверок (`5 / 5 проверок пройдено`).
+
+Если нужен доступ к приложению из браузера, можно временно добавить в
+`compose.yaml` сервису `test-server` маппинг `8081:80`, пересоздать контейнер
+и открыть `http://localhost:8081/`. В штатной конфигурации порт не нужен:
+Jenkins и Ansible обращаются к серверу по имени `test-server`.
 
 Дополнительно проверено внутри тестового сервера:
 
@@ -614,7 +696,8 @@ docker exec -u jenkins lab05-ansible-agent bash -lc '
   ansible-playbook -i hosts.ini setup_test_server.yml &&
   ansible-playbook -i hosts.ini deploy_php_app.yml
 '
-curl -sS -o /dev/null -w "%{http_code}\n" http://localhost:8081/
+docker exec lab05-ansible-agent \
+  curl -sS -o /dev/null -w "%{http_code}\n" http://test-server/
 ```
 
 ## Ответы на вопросы
