@@ -1,0 +1,16 @@
+<VirtualHost *:80>
+    ServerName {{ php_app_server_name }}
+    ServerAdmin admin@example.com
+    DocumentRoot {{ php_app_public_dir }}
+
+    <Directory {{ php_app_public_dir }}>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    DirectoryIndex index.php index.html
+
+    ErrorLog ${APACHE_LOG_DIR}/php-app-error.log
+    CustomLog ${APACHE_LOG_DIR}/php-app-access.log combined
+</VirtualHost>

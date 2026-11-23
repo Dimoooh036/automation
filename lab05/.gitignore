@@ -1,0 +1,12 @@
+# Приватные SSH-ключи не публикуются в репозитории
+secrets/*_key
+
+# Зависимости и артефакты PHP проекта
+php-app/vendor/
+php-app/build/
+php-app/.phpunit.cache/
+php-app/composer.phar
+
+# Служебные файлы Ansible
+ansible/*.retry
+ansible/.ansible/

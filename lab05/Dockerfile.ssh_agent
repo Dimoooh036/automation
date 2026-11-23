@@ -1,0 +1,34 @@
+# SSH-агент Jenkins для сборки PHP проекта и запуска PHPUnit.
+# На базе Ubuntu, чтобы поведение совпадало с остальными агентами.
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        openssh-server \
+        ca-certificates \
+        curl \
+        git \
+        unzip \
+        default-jre-headless \
+        php-cli \
+        php-mbstring \
+        php-xml \
+        php-curl \
+        composer \
+        sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+# Пользователь, от имени которого Jenkins подключается по SSH
+RUN useradd -m -s /bin/bash jenkins \
+    && echo 'jenkins:jenkins' | chpasswd \
+    && mkdir -p /home/jenkins/.ssh /home/jenkins/agent /run/sshd \
+    && chown -R jenkins:jenkins /home/jenkins \
+    && chmod 700 /home/jenkins/.ssh
+
+COPY ssh-agent-entrypoint.sh /usr/local/bin/ssh-agent-entrypoint.sh
+RUN chmod +x /usr/local/bin/ssh-agent-entrypoint.sh
+
+EXPOSE 22
+
+ENTRYPOINT ["/usr/local/bin/ssh-agent-entrypoint.sh"]

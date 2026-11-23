@@ -1,0 +1,68 @@
+services:
+  # Jenkins Controller — управляет конвейерами и раздаёт задачи агентам
+  jenkins-controller:
+    image: jenkins/jenkins:lts
+    container_name: lab05-jenkins-controller
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+    networks:
+      - jenkins-network
+
+  # SSH-агент для сборки PHP проекта и запуска PHPUnit
+  ssh-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.ssh_agent
+    container_name: lab05-ssh-agent
+    environment:
+      - JENKINS_AGENT_SSH_PUBKEY=${JENKINS_AGENT_SSH_PUBKEY}
+    volumes:
+      - jenkins_agent_volume:/home/jenkins/agent
+    depends_on:
+      - jenkins-controller
+    networks:
+      - jenkins-network
+
+  # Агент Ansible — выполняет playbook'и на тестовом сервере
+  ansible-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.ansible_agent
+    container_name: lab05-ansible-agent
+    environment:
+      - JENKINS_AGENT_SSH_PUBKEY=${JENKINS_ANSIBLE_AGENT_SSH_PUBKEY}
+    volumes:
+      - jenkins_ansible_volume:/home/jenkins/agent
+      # Приватный ключ для подключения Ansible к тестовому серверу.
+      # Entrypoint копирует его в ~/.ssh с правами 600.
+      - ./secrets/ansible_server_key:/run/secrets/ansible_server_key:ro
+    depends_on:
+      - jenkins-controller
+      - test-server
+    networks:
+      - jenkins-network
+
+  # Тестовый сервер, который настраивается Ansible playbook'ом
+  test-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.test_server
+    container_name: lab05-test-server
+    environment:
+      - ANSIBLE_SSH_PUBKEY=${ANSIBLE_SERVER_SSH_PUBKEY}
+    ports:
+      - "8081:80"
+    networks:
+      - jenkins-network
+
+volumes:
+  jenkins_home:
+  jenkins_agent_volume:
+  jenkins_ansible_volume:
+
+networks:
+  jenkins-network:
+    driver: bridge
